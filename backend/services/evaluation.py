@@ -42,3 +42,41 @@ class EvaluationService:
             "precision": round(precision, 4),
             "recall": round(recall, 4)
         }
+
+    @staticmethod
+    def evaluate_groundedness(query: str, answer: str, contexts: List[str]) -> Dict[str, Any]:
+        """
+        Uses an LLM to evaluate if the answer is grounded in the contexts.
+        (Simplified RAGAS-style faithfulness check).
+        """
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import HumanMessage, SystemMessage
+        import os
+
+        if not os.getenv("OPENAI_API_KEY"):
+            return {"score": 0.0, "reason": "No API key for evaluation"}
+
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        
+        system_prompt = (
+            "You are an evaluator. Grade the 'Groundedness' of an answer relative to provided contexts. "
+            "Groundedness means the answer contains ONLY information found in the context and does not hallucinate. "
+            "Return a JSON object with 'score' (0.0 to 1.0) and 'reason'."
+        )
+        
+        context_text = "\n\n".join(contexts)
+        user_prompt = f"Query: {query}\n\nAnswer: {answer}\n\nContexts:\n{context_text}"
+        
+        try:
+            response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
+            # Simple extraction from JSON-like string if LLM returns it
+            content = response.content
+            import json
+            import re
+            match = re.search(r'\{.*\}', content, re.DOTALL)
+            if match:
+                data = json.loads(match.group())
+                return data
+            return {"score": 0.5, "reason": "Could not parse evaluator response"}
+        except:
+            return {"score": 0.0, "reason": "Evaluation failed"}

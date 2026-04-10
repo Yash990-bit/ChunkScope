@@ -4,6 +4,13 @@ pydantic
 python-multipart
 langchain
 langchain-community
+langchain-text-splitters
 python-dotenv
 pytest
 httpx
+rank-bm25
+sentence-transformers
+faiss-cpu
+numpy
+langchain-openai
+langchain-experimental

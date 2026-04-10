@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 class DocumentAnalyzer:
     @staticmethod
@@ -40,3 +40,45 @@ class DocumentAnalyzer:
         signals["density_score"] = round(sig_count / (len(text) / 1000 + 1), 4)
 
         return signals
+
+    @staticmethod
+    def validate_chunks(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Analyzes a list of chunks and adds 'warnings' to their metadata if 
+        context breakage is detected (Failure Mode Detection).
+        """
+        for chunk in chunks:
+            content = chunk["content"].strip()
+            warnings = []
+            
+            # 1. Sentence Fragment Check
+            if content and content[-1] not in ('.', '!', '?', '"', "'", '”', '’'):
+                # Avoid flagging if it's a code block end or header
+                if not content.endswith('```') and not content.startswith('#'):
+                    warnings.append({
+                        "type": "fragment",
+                        "severity": "medium",
+                        "message": "Chunk ends mid-sentence. Potential context loss."
+                    })
+            
+            # 2. Code Block Check
+            backtick_count = content.count('```')
+            if backtick_count % 2 != 0:
+                warnings.append({
+                    "type": "code_break",
+                    "severity": "high",
+                    "message": "Unclosed code block. Syntax highlighting and context will be broken."
+                })
+                
+            # 3. List Item Break Check
+            # Check if it ends with a list pattern (bullet or number)
+            if re.search(r'^\s*[-*+]\s+.*$|^\s*\d+\.\s+.*$', content.split('\n')[-1]):
+                warnings.append({
+                    "type": "list_break",
+                    "severity": "medium",
+                    "message": "Chunk ends on a list item. Next item may be separated."
+                })
+
+            chunk["metadata"]["warnings"] = warnings
+            
+        return chunks

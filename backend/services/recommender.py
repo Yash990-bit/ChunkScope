@@ -2,7 +2,7 @@ import os
 import json
 from typing import Dict, Any
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from services.analyzer import DocumentAnalyzer
 
 class StrategyRecommender:

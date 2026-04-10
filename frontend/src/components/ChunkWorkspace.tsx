@@ -2,10 +2,17 @@
 
 import React from 'react';
 
+interface Warning {
+  type: string;
+  severity: string;
+  message: string;
+}
+
 interface ChunkMetadata {
   start_index: number;
   char_count: number;
   token_count_estimated: number;
+  warnings?: Warning[];
 }
 
 interface Chunk {
@@ -103,6 +110,28 @@ export default function ChunkWorkspace({ chunks, strategy }: ChunkWorkspaceProps
             }}>
               {chunk.content}
             </div>
+
+            {chunk.metadata.warnings && chunk.metadata.warnings.length > 0 && (
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '4px',
+                marginTop: '4px'
+              }}>
+                {chunk.metadata.warnings.map((w, idx) => (
+                  <div key={idx} style={{ 
+                    fontSize: '10px', 
+                    color: w.severity === 'high' ? 'var(--accent)' : '#f59e0b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <span>⚠️</span>
+                    <span>{w.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div style={{ 
               marginTop: 'auto',
