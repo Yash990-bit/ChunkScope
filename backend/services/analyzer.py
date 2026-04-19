@@ -82,3 +82,31 @@ class DocumentAnalyzer:
             chunk["metadata"]["warnings"] = warnings
             
         return chunks
+    @staticmethod
+    def explain_chunk(chunk_content: str, chunk_index: int) -> Dict[str, Any]:
+        """
+        Uses an LLM to explain the quality of a specific chunk.
+        """
+        import os
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import HumanMessage, SystemMessage
+        
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return {"explanation": "OpenAI API key missing. Cannot generate AI explanation."}
+            
+        llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0)
+        
+        system_prompt = (
+            "You are a RAG optimization expert. Analyze the provided text chunk and explain its quality for retrieval. "
+            "Identify if it preserves context, where it breaks (if at all), and what information might be missing. "
+            "Keep the explanation concise (2-3 sentences)."
+        )
+        
+        user_prompt = f"Chunk Index: {chunk_index}\nContent: {chunk_content}"
+        
+        try:
+            response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
+            return {"explanation": response.content}
+        except Exception as e:
+            return {"explanation": f"Failed to generate explanation: {str(e)}"}

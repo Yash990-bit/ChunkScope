@@ -1,39 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import StatusIndicator from './StatusIndicator';
 
 export default function Header() {
   return (
-    <nav className="glass" style={{ 
-      padding: '16px 40px', 
+    <nav style={{ 
+      padding: '32px 0 24px', 
       display: 'flex', 
-      justifyContent: 'space-between', 
       alignItems: 'center',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100
+      gap: '10px',
+      fontSize: '13px',
+      color: 'var(--muted)',
+      fontWeight: 500,
+      fontFamily: "'Outfit', sans-serif"
     }}>
-      <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-        <div style={{ 
-          width: '32px', 
-          height: '32px', 
-          borderRadius: '8px', 
-          background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontWeight: 'bold',
-          fontSize: '18px',
-          color: 'white'
-        }}>C</div>
-        <h1 style={{ fontSize: '20px', fontWeight: 800 }}>ChunkScope</h1>
-      </Link>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-        <Link href="/playground" style={{ fontSize: '14px', fontWeight: 500, color: 'var(--foreground)' }}>Playground</Link>
-        <Link href="#" style={{ fontSize: '14px', fontWeight: 500, color: 'var(--muted)' }}>Evaluation</Link>
-        <StatusIndicator />
-      </div>
+      <Link href="/" style={{ transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'white'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--muted)'}>Home</Link>
+      <span style={{ opacity: 0.3 }}>/</span>
+      <Link href="#" style={{ transition: 'color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.color = 'white'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--muted)'}>Tools</Link>
+      <span style={{ opacity: 0.3 }}>/</span>
+      <span style={{ color: 'white', fontWeight: 700 }}>RAG Chunking Playground</span>
     </nav>
   );
 }

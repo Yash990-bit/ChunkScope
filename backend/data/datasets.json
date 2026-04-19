@@ -1,0 +1,30 @@
+[
+  {
+    "id": "legal_termination",
+    "name": "Legal: Termination Clause",
+    "category": "Legal",
+    "content": "12.3 Termination for Convenience. Either Party may terminate this Agreement at any time upon thirty (30) days' prior written notice to the other Party. In the event of such termination, the Customer shall pay the Service Provider for all services rendered up to the effective date of termination, calculated on a pro-rata basis. Any prepaid fees for the remaining term shall be refunded within sixty (60) days of the termination date.",
+    "recommended_query": "What is the notice period for termination and refund policy?"
+  },
+  {
+    "id": "api_resource_create",
+    "name": "API: Resource Creation",
+    "category": "Technical Docs",
+    "content": "POST /api/v1/resource/create\nCreates a new resource entry. Requires an Authorization header with a Bearer token.\n\nRequest Body:\n- name (string, required): The name of the resource.\n- type (enum, required): Must be one of [\"compute\", \"storage\", \"network\"].\n\nResponse: Returns a 201 Created status code with a JSON object containing the resource_id and created_at timestamp.",
+    "recommended_query": "How do I create a new compute resource and what is the status code?"
+  },
+  {
+    "id": "product_manual_battery",
+    "name": "Product: Battery Troubleshooting",
+    "category": "Manuals",
+    "content": "Troubleshooting Battery Issues: If the device fails to charge, first ensure the power adapter is securely connected to the wall outlet and the device port. If the charging LED does not illuminate after 30 seconds, perform a hard reset by holding the Power button for 10 seconds. If the issue persists, contact Technical Support at support@example.com with your device serial number.",
+    "recommended_query": "What are the steps if the device fails to charge?"
+  },
+  {
+    "id": "research_rag_eval",
+    "name": "Research: RAG Evaluation Framework",
+    "category": "Academic",
+    "content": "We propose a novel framework for evaluating RAG systems that emphasizes semantic fidelity over lexical overlap. Our methodology, 'Context-Grounding-Metric (CGM),' utilizes a secondary LLM to verify that generated responses are strictly derived from the retrieved context chunks. Experimental results on legal and technical corpora demonstrate a 15% reduction in hallucination rates compared to baseline RAG architectures.",
+    "recommended_query": "What are the benefits of the Context-Grounding-Metric framework?"
+  }
+]

@@ -1,51 +1,63 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import ChunkWorkspace from '@/components/ChunkWorkspace';
-import { fetchChunks, retrieveChunks, evaluateRetrieval, fetchRecommendation, generateAnswer } from '@/lib/api';
+import { fetchChunks, retrieveChunks, evaluateRetrieval, fetchRecommendation, generateAnswer, fetchDatasets, fetchExplanation, uploadFile } from '@/lib/api';
 
-const ResultCard = ({ chunk, rank, isRelevant, onToggle }: { chunk: any, rank: number, isRelevant: boolean, onToggle: () => void }) => {
-  const gradeColor = rank === 0 ? '#10b981' : rank < 3 ? '#f59e0b' : '#ef4444';
+const ResultCard = ({ chunk, rank, isRelevant, onToggle, onAnalyze, isAnalyzing }: { chunk: any, rank: number, isRelevant: boolean, onToggle: () => void, onAnalyze: () => void, isAnalyzing?: boolean }) => {
+  const gradeColor = rank === 0 ? 'var(--primary)' : rank < 3 ? '#f59e0b' : '#ef4444';
   const gradeLabel = rank === 0 ? 'Optimal' : rank < 3 ? 'Relevant' : 'Low Relevance';
   
   return (
     <div 
       className="card" 
       style={{ 
-        border: isRelevant ? '2px solid var(--secondary)' : '1px solid var(--border)', 
-        cursor: 'pointer',
+        border: isRelevant ? '2px solid var(--primary)' : '1px solid var(--border)', 
+        cursor: 'default',
         position: 'relative',
-        transition: 'all 0.2s',
-        transform: isRelevant ? 'scale(1.02)' : 'none'
+        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        transform: isRelevant ? 'scale(1.02)' : 'none',
+        background: 'rgba(15, 23, 42, 0.4)'
       }} 
-      onClick={onToggle}
     >
-      <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-        <span style={{ fontSize: '10px', color: gradeColor, fontWeight: 700, textTransform: 'uppercase' }}>{gradeLabel}</span>
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: gradeColor }}></div>
+      <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onAnalyze(); }}
+          disabled={isAnalyzing}
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'white', fontSize: '10px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+        >
+          {isAnalyzing ? 'Analyzing...' : '🔍 Explain'}
+        </button>
+        <span style={{ fontSize: '10px', color: gradeColor, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{gradeLabel}</span>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: gradeColor, boxShadow: `0 0 8px ${gradeColor}` }}></div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', paddingRight: '100px' }}>
-        <span style={{ fontSize: '11px', fontWeight: 700 }}>RANK #{rank+1} <span style={{ opacity: 0.5 }}>(Index {chunk.index})</span></span>
-        <span style={{ fontSize: '11px', color: 'var(--secondary)', fontWeight: 600 }}>Score: {chunk.retrieval_score.toFixed(4)}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', paddingRight: '140px' }}>
+        <div onClick={onToggle} style={{ cursor: 'pointer' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.5)' }}>#RANK {rank+1} <span style={{ opacity: 0.5, marginLeft: '4px' }}>(ID {chunk.index})</span></span>
+        </div>
+        <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, fontFamily: "'Outfit', sans-serif" }}>Score: {chunk.retrieval_score.toFixed(4)}</span>
       </div>
-      <div style={{ fontSize: '13px', lineHeight: 1.5, opacity: 0.9 }}>{chunk.content}</div>
       
-      {chunk.metadata.warnings && chunk.metadata.warnings.length > 0 && (
-        <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {chunk.metadata.warnings.map((w: any, idx: number) => (
-            <div key={idx} style={{ fontSize: '11px', color: w.severity === 'high' ? '#ef4444' : '#f59e0b', background: 'rgba(0,0,0,0.2)', padding: '4px 8px', borderRadius: '4px', border: `1px solid ${w.severity === 'high' ? '#ef4444' : '#f59e0b'}`, display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <span>⚠️</span>
-              <span>{w.message}</span>
-            </div>
-          ))}
+      <div style={{ fontSize: '13px', lineHeight: 1.6, color: 'rgba(255,255,255,0.9)' }}>{chunk.content}</div>
+      
+      {chunk.explanation && (
+        <div style={{ marginTop: '16px', padding: '14px', background: 'rgba(34, 211, 238, 0.03)', borderRadius: '10px', borderLeft: '4px solid var(--primary)', fontSize: '12.5px', lineHeight: 1.6 }}>
+          <div style={{ fontWeight: 800, color: 'var(--primary)', marginBottom: '6px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: "'Outfit', sans-serif" }}>AI Optimization Insight</div>
+          {chunk.explanation}
         </div>
       )}
 
-      {isRelevant && (
-        <div style={{ marginTop: '12px', color: 'var(--secondary)', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span>✨ Ground Truth Relevant</span>
+      {chunk.metadata.warnings && chunk.metadata.warnings.length > 0 && (
+        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {chunk.metadata.warnings.map((w: any, idx: number) => (
+            <div key={idx} style={{ fontSize: '11.5px', color: w.severity === 'high' ? 'var(--accent)' : '#f59e0b', background: 'rgba(0,0,0,0.3)', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${w.severity === 'high' ? 'rgba(244, 63, 94, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`, display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span>⚠️</span>
+              <span style={{ fontWeight: 500 }}>{w.message}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -58,11 +70,14 @@ export default function Playground() {
   // Chunking States
   const [text, setText] = useState('');
   const [strategy, setStrategy] = useState('recursive');
-  const [chunkSize, setChunkSize] = useState(500);
+  const [chunkSize, setChunkSize] = useState(400);
   const [chunkOverlap, setChunkOverlap] = useState(50);
-  const [breakpointThreshold, setBreakpointThreshold] = useState(90);
+  const [sentencesPerChunk, setSentencesPerChunk] = useState(3);
+  const [regexPattern, setRegexPattern] = useState('\\n## | Q: | —');
   const [chunks, setChunks] = useState<any[]>([]);
   const [isChunking, setIsChunking] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Evaluation States
   const [query, setQuery] = useState('');
@@ -90,8 +105,80 @@ export default function Playground() {
   // Recommendation States
   const [recommendation, setRecommendation] = useState<any>(null);
   const [isRecommending, setIsRecommending] = useState(false);
+
+  // Dataset States
+  const [availableDatasets, setAvailableDatasets] = useState<any[]>([]);
+  const [selectedDatasetId, setSelectedDatasetId] = useState('');
+  
+  // Analysis States
+  const [analyzingChunkIndex, setAnalyzingChunkIndex] = useState<number | null>(null);
   
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadDatasets = async () => {
+      try {
+        const data = await fetchDatasets();
+        setAvailableDatasets(data);
+      } catch (err) {
+        console.error("Failed to load datasets", err);
+      }
+    };
+    loadDatasets();
+  }, []);
+
+  const handleLoadDataset = (datasetId: string) => {
+    const dataset = availableDatasets.find(d => d.id === datasetId);
+    if (dataset) {
+      setText(dataset.content);
+      setSelectedDatasetId(datasetId);
+      if (dataset.recommended_query) {
+        setQuery(dataset.recommended_query);
+      }
+    }
+  };
+
+  const explainChunkResult = async (chunkIndex: number, isSystemB: boolean = false) => {
+    const chunkList = isSystemB ? compareResults : retrievedChunks;
+    const chunk = chunkList.find(c => c.index === chunkIndex);
+    if (!chunk) return;
+
+    setAnalyzingChunkIndex(chunkIndex);
+    try {
+      const res = await fetchExplanation(chunk.content, chunkIndex);
+      const updateFn = (list: any[]) => list.map(c => 
+        c.index === chunkIndex ? { ...c, explanation: res.explanation } : c
+      );
+      
+      if (isSystemB) {
+        setCompareResults(updateFn);
+      } else {
+        setRetrievedChunks(updateFn);
+      }
+    } catch (err: any) {
+      setError("Failed to get explanation.");
+    } finally {
+      setAnalyzingChunkIndex(null);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setError(null);
+    try {
+      const result = await uploadFile(file);
+      setText(result.content);
+      setChunks([]); // Clear previous chunks to avoid confusion
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload and parse file.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleRunChunking = async () => {
     if (!text.trim()) {
@@ -101,7 +188,15 @@ export default function Playground() {
     setIsChunking(true);
     setError(null);
     try {
-      const result = await fetchChunks(text, strategy, chunkSize, chunkOverlap, breakpointThreshold);
+      const result = await fetchChunks(
+        text, 
+        strategy, 
+        chunkSize, 
+        chunkOverlap, 
+        90,
+        sentencesPerChunk,
+        regexPattern
+      );
       setChunks(result.chunks);
       setMetrics(null);
       setRelevantIndices([]);
@@ -113,49 +208,20 @@ export default function Playground() {
     }
   };
 
-  const handleGetRecommendation = async () => {
-    if (!text.trim()) {
-      setError('Please enter some text for analysis.');
-      return;
-    }
-    setIsRecommending(true);
-    setError(null);
-    try {
-      const result = await fetchRecommendation(text);
-      setRecommendation(result);
-    } catch (err: any) {
-      setError('Failed to get recommendation. Check your OpenAI API key.');
-    } finally {
-      setIsRecommending(false);
-    }
-  };
-
-  const applyRecommendation = () => {
-    if (!recommendation) return;
-    setStrategy(recommendation.strategy);
-    setChunkSize(recommendation.chunk_size);
-    setChunkOverlap(recommendation.chunk_overlap);
-    setRecommendation(null); // Clear recommendation after applying
-  };
-
   const handleSearch = async () => {
     if (!query.trim() || chunks.length === 0) return;
     setIsSearching(true);
     if (compareMode) setIsComparing(true);
 
     try {
-      // Transition search results
       const result = await retrieveChunks(query, chunks, retrievalMethod, 5, useRerank);
       setRetrievedChunks(result.results);
       setLatencyMetrics((prev: any) => ({ ...prev, primary: result.latency_ms }));
-      setMetrics(null);
-
-      // Comparison Search
+      
       if (compareMode) {
         const compareRes = await retrieveChunks(query, chunks, compareMethod, 5, false);
         setCompareResults(compareRes.results);
         setLatencyMetrics((prev: any) => ({ ...prev, compare: compareRes.latency_ms }));
-        setCompareMetrics(null);
       }
     } catch (err: any) {
       setError(err.message || 'Search failed.');
@@ -165,409 +231,330 @@ export default function Playground() {
     }
   };
 
-  const toggleRelevance = (index: number) => {
-    setRelevantIndices(prev => 
-      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
-    );
-  };
-
-  const handleEvaluate = async () => {
-    if (retrievedChunks.length === 0 || relevantIndices.length === 0) return;
-    try {
-      const retrievedIndices = retrievedChunks.map(c => c.index);
-      const result = await evaluateRetrieval(retrievedIndices, relevantIndices, 5);
-      setMetrics(result);
-
-      if (compareMode && compareResults.length > 0) {
-        const compareRetrievedIndices = compareResults.map(c => c.index);
-        const compareResult = await evaluateRetrieval(compareRetrievedIndices, relevantIndices, 5);
-        setCompareMetrics(compareResult);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Evaluation failed.');
-    }
-  };
-
-  const handleGenerate = async () => {
-    if (retrievedChunks.length === 0) return;
-    setIsGenerating(true);
-    setGenerationResult(null);
-    setCompareGeneration(null);
-    try {
-      const contexts = retrievedChunks.map(c => c.content);
-      const res = await generateAnswer(query, contexts, ragModel, true);
-      setGenerationResult(res);
-
-      if (compareMode && compareResults.length > 0) {
-        const compareContexts = compareResults.map(c => c.content);
-        const compRes = await generateAnswer(query, compareContexts, ragModel, true);
-        setCompareGeneration(compRes);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Generation failed.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
-      <Header />
-      
-      <main style={{ padding: '40px', maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Tab Navigation */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', background: 'var(--surface)', padding: '4px', borderRadius: '12px', width: 'fit-content', border: '1px solid var(--border)' }}>
-          <button onClick={() => setActiveTab('chunking')} style={{ padding: '8px 24px', borderRadius: '8px', border: 'none', background: activeTab === 'chunking' ? 'var(--primary)' : 'transparent', color: activeTab === 'chunking' ? 'white' : 'var(--muted)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>🧩 Chunking</button>
-          <button onClick={() => setActiveTab('evaluation')} style={{ padding: '8px 24px', borderRadius: '8px', border: 'none', background: activeTab === 'evaluation' ? 'var(--primary)' : 'transparent', color: activeTab === 'evaluation' ? 'white' : 'var(--muted)', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>🔍 Evaluation</button>
-        </div>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', padding: '0 40px' }}>
+      <main style={{ maxWidth: '1240px', margin: '0 auto' }}>
+        <Header />
+        
+        {/* Hero Section */}
+        <section style={{ textAlign: 'center', margin: '60px 0 80px' }} className="animate-fade-in">
+          <div className="badge" style={{ marginBottom: '28px' }}>Free RAG Optimization Tool</div>
+          <h1 className="text-gradient" style={{ fontSize: '64px', fontWeight: 900, marginBottom: '20px', lineHeight: 1.1, letterSpacing: '-0.03em' }}>
+            RAG Chunking Playground<br />
+            <span style={{ color: 'white' }}>Visualize & Compare Strategies</span>
+          </h1>
+          <p style={{ color: 'var(--muted)', fontSize: '16px', maxWidth: '720px', margin: '0 auto', lineHeight: 1.7, fontWeight: 400 }}>
+            How you split your documents matters more than which embedding model you pick. Paste any text and instantly see how different chunking strategies handle context, mid-word cuts, and semantic continuity.
+          </p>
+        </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', alignItems: 'start' }}>
+        {/* Main Interface Content */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }} className="animate-fade-in">
           
-          {/* Left Panel */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {activeTab === 'chunking' ? (
-              <>
-                <div className="card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ fontSize: '20px' }}>Strategy Configuration</h2>
-                    <button 
-                      onClick={handleGetRecommendation}
-                      disabled={isRecommending || !text.trim()}
-                      style={{ padding: '6px 12px', borderRadius: '6px', background: 'var(--glass)', border: '1px solid var(--primary)', color: 'var(--primary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      {isRecommending ? 'Analyzing...' : '✨ AI Suggest'}
-                    </button>
-                  </div>
+          {/* Strategy Selector Tabs */}
+          <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border)', width: 'fit-content', margin: '0 auto' }}>
+            {['recursive', 'semantic', 'sentence', 'regex', 'fixed'].map((s) => (
+              <button
+                key={s}
+                onClick={() => setStrategy(s)}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  cursor: 'pointer',
+                  border: 'none',
+                  transition: 'all 0.2s',
+                  background: strategy === s ? 'var(--primary)' : 'transparent',
+                  color: strategy === s ? 'black' : 'rgba(255,255,255,0.5)',
+                  fontFamily: "'Outfit', sans-serif"
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
 
-                  {recommendation && (
-                    <div style={{ marginBottom: '20px', padding: '16px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '12px', border: '1px solid var(--primary)' }}>
-                      <div style={{ fontSize: '13px', color: 'var(--primary)', fontWeight: 600, marginBottom: '8px' }}>🤖 AI Recommendation</div>
-                      <div style={{ fontSize: '14px', marginBottom: '12px', lineHeight: 1.5 }}>{recommendation.rationale}</div>
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Suggested: {recommendation.strategy} ({recommendation.chunk_size}/{recommendation.chunk_overlap})</div>
-                        <button onClick={applyRecommendation} style={{ padding: '4px 10px', background: 'var(--primary)', border: 'none', borderRadius: '4px', color: 'white', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Apply</button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--muted)' }}>Strategy</label>
-                      <select 
-                        value={strategy} 
-                        onChange={(e) => setStrategy(e.target.value)}
-                        style={{ width: '100%', padding: '10px', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--foreground)' }}
-                      >
-                        <option value="recursive">Recursive Character</option>
-                        <option value="fixed">Fixed Size</option>
-                        <option value="token">Token-based</option>
-                        <option value="semantic">Semantic (Topic-aware)</option>
-                        <option value="sliding">Sliding Window</option>
-                      </select>
-                    </div>
-
-                    {strategy === 'semantic' && (
-                      <div style={{ padding: '16px', background: 'var(--glass)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <label style={{ fontSize: '12px', color: 'var(--muted)' }}>Breakpoint Percentile</label>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)' }}>{breakpointThreshold}</span>
-                        </div>
-                        <input 
-                          type="range" min="1" max="100" 
-                          value={breakpointThreshold} 
-                          onChange={(e) => setBreakpointThreshold(parseInt(e.target.value))}
-                          style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }}
-                        />
-                        <p style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '8px' }}>
-                          Higher percentile = splitter only breaks on massive semantic shifts (fewer chunks).
-                        </p>
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--muted)' }}>Chunk Size</label>
-                        <input type="number" value={isNaN(chunkSize) ? '' : chunkSize} onChange={(e) => setChunkSize(parseInt(e.target.value) || 0)} style={{ width: '100%', padding: '10px', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--foreground)' }} />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--muted)' }}>Overlap</label>
-                        <input type="number" value={isNaN(chunkOverlap) ? '' : chunkOverlap} onChange={(e) => setChunkOverlap(parseInt(e.target.value) || 0)} style={{ width: '100%', padding: '10px', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--foreground)' }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card" style={{ flex: 1 }}>
-                  <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Input Text</h2>
-                  <textarea 
-                    value={text} onChange={(e) => setText(e.target.value)}
-                    placeholder="Paste your document content here..."
-                    style={{ minHeight: '400px', width: '100%', padding: '16px', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--foreground)', fontFamily: 'inherit', resize: 'vertical', fontSize: '15px', lineHeight: 1.6 }}
+          <div className="card" style={{ padding: '32px', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.05)', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '40px' }}>
+            
+            {/* Left Column: Text Input Area */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ position: 'relative' }}>
+                <textarea 
+                  value={text} 
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Paste your document here, upload a file, or click a sample below..."
+                  style={{ 
+                    width: '100%', 
+                    height: '420px', 
+                    background: 'rgba(0,0,0,0.5)', 
+                    border: '1px solid var(--border)', 
+                    borderRadius: '16px', 
+                    padding: '24px', 
+                    color: 'white', 
+                    fontSize: '14px', 
+                    lineHeight: 1.7, 
+                    resize: 'none',
+                    outline: 'none',
+                    fontFamily: '"Inter", sans-serif',
+                    boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.4)',
+                    transition: 'border-color 0.2s'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = 'rgba(34, 211, 238, 0.4)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                />
+                <div style={{ position: 'absolute', bottom: '20px', left: '20px', display: 'flex', gap: '10px' }}>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileUpload} 
+                    accept=".txt,.md,.pdf" 
+                    style={{ display: 'none' }} 
                   />
-                  <button onClick={handleRunChunking} disabled={isChunking} className="btn-primary" style={{ marginTop: '16px', padding: '14px', width: '100%' }}>
-                    {isChunking ? 'Processing...' : 'Run Chunking Engine'}
+                  <button 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={isUploading}
+                    className="btn-secondary" 
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}
+                  >
+                     <span style={{ fontSize: '16px' }}>{isUploading ? '⏳' : '📁'}</span> 
+                     {isUploading ? 'Uploading...' : 'Upload .txt / .md / .pdf'}
                   </button>
-                </div>
-              </>
-            ) : (
-              /* Evaluation UI */
-              <div className="card">
-                <h2 style={{ fontSize: '20px', marginBottom: '20px' }}>Retrieval Tester</h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--muted)' }}>Retrieval Method</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => setRetrievalMethod('vector')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: retrievalMethod === 'vector' ? 'var(--primary)' : 'transparent', color: 'white', cursor: 'pointer', fontSize: '12px' }}>Vector</button>
-                      <button onClick={() => setRetrievalMethod('bm25')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: retrievalMethod === 'bm25' ? 'var(--primary)' : 'transparent', color: 'white', cursor: 'pointer', fontSize: '12px' }}>BM25</button>
-                      <button onClick={() => setRetrievalMethod('hybrid')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: retrievalMethod === 'hybrid' ? 'var(--primary)' : 'transparent', color: 'white', cursor: 'pointer', fontSize: '12px' }}>Hybrid</button>
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <input 
-                        type="checkbox" 
-                        id="rerank" 
-                        checked={useRerank} 
-                        onChange={(e) => setUseRerank(e.target.checked)}
-                        style={{ width: '16px', height: '16px' }}
-                      />
-                      <label htmlFor="rerank" style={{ fontSize: '14px', cursor: 'pointer' }}>Apply Reranking</label>
-                    </div>
-
-                    <button 
-                      onClick={() => setCompareMode(!compareMode)}
-                      style={{ padding: '4px 12px', borderRadius: '6px', background: compareMode ? 'var(--secondary)' : 'var(--glass)', border: '1px solid var(--border)', color: 'white', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      {compareMode ? '✕ End Compare' : '⚖️ Compare Mode'}
-                    </button>
-                  </div>
-
-                  {compareMode && (
-                    <div style={{ padding: '12px', background: 'var(--glass)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                      <label style={{ display: 'block', fontSize: '12px', marginBottom: '8px', color: 'var(--muted)' }}>Compare With:</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => setCompareMethod('vector')} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid var(--border)', background: compareMethod === 'vector' ? 'var(--secondary)' : 'transparent', color: 'white', cursor: 'pointer', fontSize: '11px' }}>Vector</button>
-                        <button onClick={() => setCompareMethod('bm25')} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid var(--border)', background: compareMethod === 'bm25' ? 'var(--secondary)' : 'transparent', color: 'white', cursor: 'pointer', fontSize: '11px' }}>BM25</button>
-                        <button onClick={() => setCompareMethod('hybrid')} style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid var(--border)', background: compareMethod === 'hybrid' ? 'var(--secondary)' : 'transparent', color: 'white', cursor: 'pointer', fontSize: '11px' }}>Hybrid</button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--muted)' }}>Search Query</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <input 
-                        type="text" value={query} onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Enter a query to test retrieval..."
-                        style={{ flex: 1, padding: '12px', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--foreground)' }}
-                      />
-                      <button onClick={handleSearch} disabled={isSearching || chunks.length === 0} className="btn-primary" style={{ padding: '0 24px' }}>
-                        {isSearching ? '...' : 'Search'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {metrics && (
-                    <div style={{ marginTop: '20px', padding: '16px', background: 'var(--glass)', borderRadius: '12px', border: '1px solid var(--primary)' }}>
-                      <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, marginBottom: '12px', textAlign: 'center' }}>SYSTEM A PERFORMANCE ({retrievalMethod.toUpperCase()})</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>Hit Rate</div>
-                          <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)' }}>{Math.round(metrics.hit_rate * 100)}%</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>MRR</div>
-                          <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--secondary)' }}>{metrics.mrr}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {compareMetrics && (
-                    <div style={{ marginTop: '12px', padding: '16px', background: 'var(--glass)', borderRadius: '12px', border: '1px solid var(--secondary)' }}>
-                      <div style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 700, marginBottom: '12px', textAlign: 'center' }}>SYSTEM B PERFORMANCE ({compareMethod.toUpperCase()})</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>Hit Rate</div>
-                          <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--secondary)' }}>{Math.round(compareMetrics.hit_rate * 100)}%</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>MRR</div>
-                          <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)' }}>{compareMetrics.mrr}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <hr style={{ border: '0.5px solid var(--border)', margin: '10px 0' }} />
-
-                  {/* RAG Simulation Panel */}
-                  <div style={{ background: 'var(--glass)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: 700 }}>🚀 RAG Simulation</h3>
-                      <select 
-                        value={ragModel} 
-                        onChange={(e) => setRagModel(e.target.value)}
-                        style={{ padding: '4px 8px', background: 'var(--background)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '11px', color: 'white' }}
-                      >
-                        <option value="gpt-4o-mini">gpt-4o-mini</option>
-                        <option value="gpt-4o">gpt-4o</option>
-                      </select>
-                    </div>
-                    <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '16px' }}>Generate answers based on retrieved context to test pipeline grounding.</p>
-                    <button 
-                      onClick={handleGenerate} 
-                      disabled={isGenerating || retrievedChunks.length === 0}
-                      className="btn-primary" 
-                      style={{ width: '100%', padding: '10px' }}
-                    >
-                      {isGenerating ? 'Generating...' : 'Synthesize Answer'}
-                    </button>
-                  </div>
-
-                  {/* Pipeline Insights Dashboard */}
-                  {(latencyMetrics.primary > 0 || generationResult) && (
-                    <div style={{ padding: '16px', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px', border: '1px solid #10b981' }}>
-                      <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#10b981', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        📊 Pipeline Insights
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                          <span style={{ color: 'var(--muted)' }}>Retrieval Latency</span>
-                          <span style={{ fontWeight: 600 }}>{latencyMetrics.primary}ms</span>
-                        </div>
-                        {generationResult && (
-                          <>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                              <span style={{ color: 'var(--muted)' }}>LLM Latency</span>
-                              <span style={{ fontWeight: 600 }}>{generationResult.latency_ms}ms</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                              <span style={{ color: 'var(--muted)' }}>Est. Cost (OpenAI)</span>
-                              <span style={{ fontWeight: 700, color: 'var(--secondary)' }}>${(generationResult.usage.total * 0.00000015).toFixed(6)}</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  <button onClick={() => { setText(''); setChunks([]); }} className="btn-secondary" style={{ fontSize: '12px' }}>✕ Clear</button>
                 </div>
               </div>
-            )}
-            {error && <p style={{ color: 'var(--accent)', marginTop: '12px', fontSize: '14px' }}>{error}</p>}
-          </div>
 
-          {/* Right Panel */}
-          <div style={{ minHeight: '600px' }}>
-            {activeTab === 'chunking' ? (
-              <ChunkWorkspace chunks={chunks} strategy={strategy} />
-            ) : (
-              /* Evaluation Results */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ fontSize: '18px' }}>
-                    {compareMode ? 'Dual Search Comparison' : 'Search Results'}
-                  </h3>
-                  {retrievedChunks.length > 0 && relevantIndices.length > 0 && (
-                    <button onClick={handleEvaluate} className="btn-primary" style={{ padding: '8px 16px', fontSize: '14px' }}>Update Metrics</button>
-                  )}
-                </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {availableDatasets.map((d) => (
+                  <button 
+                    key={d.id} 
+                    onClick={() => handleLoadDataset(d.id)}
+                    className="btn-secondary" 
+                    style={{ 
+                      fontSize: '11px', 
+                      padding: '8px 14px', 
+                      background: selectedDatasetId === d.id ? 'rgba(34, 211, 238, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                      borderColor: selectedDatasetId === d.id ? 'var(--primary)' : 'var(--border)',
+                      color: selectedDatasetId === d.id ? 'var(--primary)' : 'white'
+                    }}
+                  >
+                    {d.name.includes(':') ? d.name.split(':')[1].trim() : d.name}
+                  </button>
+                ))}
+              </div>
+              
+              <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                👉 Paste text or select a curated sample from above
+              </div>
+            </div>
+
+            {/* Right Column: Interactive Configuration */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '40px', padding: '10px 0' }}>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                 
-                <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                  💡 Mark chunks as <span style={{ color: 'var(--secondary)' }}>relevant</span> to compare strategies.
-                </p>
-
-                <div style={{ 
-                  display: compareMode ? 'grid' : 'flex', 
-                  gridTemplateColumns: compareMode ? '1fr 1fr' : 'none',
-                  flexDirection: 'column',
-                  gap: '24px' 
-                }}>
-                  {/* Results Column A */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {compareMode && <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.6 }}>SYSTEM A: {retrievalMethod.toUpperCase()} {useRerank ? '+ Rerank' : ''}</div>}
-                    
-                    {retrievedChunks.length === 0 ? (
-                      <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed var(--border)', borderRadius: '12px', color: 'var(--muted)', fontSize: '13px' }}>
-                        Run search to see results A
+                {/* Fixed/Recursive/Sentence/Regex Controls */}
+                {(strategy !== 'semantic') && (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <label className="label-small">Chunk Size (Tokens)</label>
+                        <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--primary)', fontFamily: "'Outfit', sans-serif" }}>{chunkSize}</span>
                       </div>
-                    ) : (
-                      <>
-                        {generationResult && (
-                          <div style={{ padding: '16px', background: 'var(--glass)', borderRadius: '12px', border: '1px solid var(--secondary)', position: 'relative' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--secondary)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                              <span>GENERATED RESPONSE (A)</span>
-                              {generationResult.groundedness && (
-                                <span style={{ color: generationResult.groundedness.score > 0.8 ? '#10b981' : '#f59e0b' }}>
-                                  Faithfulness: {Math.round(generationResult.groundedness.score * 100)}%
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '13px', lineHeight: 1.6, color: 'white' }}>{generationResult.answer}</div>
-                            {generationResult.groundedness && (
-                              <div style={{ fontSize: '10px', marginTop: '8px', opacity: 0.6, fontStyle: 'italic' }}>
-                                Rationale: {generationResult.groundedness.reason}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {retrievedChunks.map((chunk, i) => (
-                          <ResultCard 
-                            key={i} 
-                            chunk={chunk} 
-                            rank={i} 
-                            isRelevant={relevantIndices.includes(chunk.index)} 
-                            onToggle={() => toggleRelevance(chunk.index)} 
-                          />
-                        ))}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Results Column B (Comparison) */}
-                  {compareMode && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.6 }}>SYSTEM B: {compareMethod.toUpperCase()}</div>
-                      
-                      {compareResults.length === 0 ? (
-                        <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed var(--border)', borderRadius: '12px', color: 'var(--muted)', fontSize: '13px' }}>
-                          Run search to see results B
-                        </div>
-                      ) : (
-                        <>
-                          {compareGeneration && (
-                            <div style={{ padding: '16px', background: 'var(--glass)', borderRadius: '12px', border: '1px solid var(--primary)' }}>
-                              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                                <span>GENERATED RESPONSE (B)</span>
-                                {compareGeneration.groundedness && (
-                                  <span style={{ color: compareGeneration.groundedness.score > 0.8 ? '#10b981' : '#f59e0b' }}>
-                                    Faithfulness: {Math.round(compareGeneration.groundedness.score * 100)}%
-                                  </span>
-                                )}
-                              </div>
-                              <div style={{ fontSize: '13px', lineHeight: 1.6, color: 'white' }}>{compareGeneration.answer}</div>
-                            </div>
-                          )}
-                          {compareResults.map((chunk, i) => (
-                            <ResultCard 
-                              key={i} 
-                              chunk={chunk} 
-                              rank={i} 
-                              isRelevant={relevantIndices.includes(chunk.index)} 
-                              onToggle={() => toggleRelevance(chunk.index)} 
-                            />
-                          ))}
-                        </>
-                      )}
+                      <input type="range" min="100" max="2000" step="50" value={chunkSize} onChange={(e) => setChunkSize(parseInt(e.target.value))} />
                     </div>
-                  )}
-                </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <label className="label-small">Overlap (Tokens)</label>
+                        <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--primary)', fontFamily: "'Outfit', sans-serif" }}>{chunkOverlap}</span>
+                      </div>
+                      <input type="range" min="0" max="500" step="10" value={chunkOverlap} onChange={(e) => setChunkOverlap(parseInt(e.target.value))} />
+                    </div>
+                  </>
+                )}
+
+                {/* Sentence Mode Extra Control */}
+                {strategy === 'sentence' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <label className="label-small">Min Sentences</label>
+                      <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--primary)', fontFamily: "'Outfit', sans-serif" }}>{sentencesPerChunk}</span>
+                    </div>
+                    <input type="range" min="1" max="20" value={sentencesPerChunk} onChange={(e) => setSentencesPerChunk(parseInt(e.target.value))} />
+                  </div>
+                )}
+
+                {/* Regex Mode Context Control */}
+                {strategy === 'regex' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <label className="label-small">Breakpoint Pattern</label>
+                    <input 
+                      type="text" 
+                      value={regexPattern} 
+                      onChange={(e) => setRegexPattern(e.target.value)}
+                      style={{ 
+                        width: '100%', 
+                        background: 'rgba(0,0,0,0.5)', 
+                        border: '1px solid var(--border)', 
+                        borderRadius: '10px', 
+                        padding: '14px', 
+                        color: 'white', 
+                        fontFamily: 'monospace', 
+                        fontSize: '13px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }} 
+                      onFocus={(e) => e.target.style.borderColor = 'rgba(34, 211, 238, 0.4)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                    />
+                  </div>
+                )}
+                
+                {/* Semantic Intensity Control */}
+                {strategy === 'semantic' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                      <label className="label-small">Breakpoint Sensitivity</label>
+                      <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--primary)', fontFamily: "'Outfit', sans-serif" }}>90%</span>
+                    </div>
+                    <input type="range" min="50" max="100" step="1" value={90} readOnly />
+                  </div>
+                )}
               </div>
-            )}
+
+              <button 
+                onClick={handleRunChunking} 
+                disabled={isChunking} 
+                className={`btn-primary ${text.length > 20 ? 'pulse' : ''}`}
+                style={{ width: '100%', height: '64px', fontSize: '18px', marginTop: 'auto' }}
+              >
+                {isChunking ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span className="animate-spin" style={{ fontSize: '20px' }}>○</span> Processing Chunks...
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '22px' }}>○</span> Chunk It
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
+          {/* Visualization & Evaluation Results */}
+          {chunks.length > 0 && (
+            <div className="animate-fade-in" style={{ marginTop: '40px' }}>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '14px', width: 'fit-content', border: '1px solid var(--border)' }}>
+                 <button 
+                  onClick={() => setActiveTab('chunking')} 
+                  style={{ 
+                    background: activeTab === 'chunking' ? 'var(--primary)' : 'transparent', 
+                    color: activeTab === 'chunking' ? '#000' : 'white', 
+                    border: 'none', 
+                    padding: '10px 24px', 
+                    borderRadius: '10px', 
+                    fontWeight: 800, 
+                    fontSize: '13px', 
+                    cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif"
+                  }}
+                 >
+                   Workspace
+                 </button>
+                 <button 
+                  onClick={() => setActiveTab('evaluation')} 
+                  style={{ 
+                    background: activeTab === 'evaluation' ? 'var(--primary)' : 'transparent', 
+                    color: activeTab === 'evaluation' ? '#000' : 'white', 
+                    border: 'none', 
+                    padding: '10px 24px', 
+                    borderRadius: '10px', 
+                    fontWeight: 800, 
+                    fontSize: '13px', 
+                    cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif"
+                  }}
+                 >
+                   RAG Evaluation
+                 </button>
+              </div>
+
+              {activeTab === 'chunking' ? (
+                <ChunkWorkspace chunks={chunks} strategy={strategy} />
+              ) : (
+                <div className="card" style={{ padding: '40px', background: 'var(--surface)' }}>
+                   <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
+                      <input 
+                         type="text" 
+                         placeholder="Test semantic retrieval with a natural language query..." 
+                         value={query} onChange={(e) => setQuery(e.target.value)}
+                         style={{ flex: 1, background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border)', borderRadius: '12px', padding: '18px', color: 'white', outline: 'none', fontSize: '15px' }}
+                      />
+                      <button 
+                        onClick={handleSearch} 
+                        disabled={isSearching} 
+                        className="btn-primary" 
+                        style={{ height: '60px', padding: '0 44px' }}
+                      >
+                        {isSearching ? '...' : 'Search Context'}
+                      </button>
+                   </div>
+
+                   <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '48px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                         <div className="label-small" style={{ opacity: 0.6, marginBottom: '-8px' }}>Top Retrieved Results</div>
+                         {retrievedChunks.length === 0 ? (
+                           <div style={{ padding: '60px', textAlign: 'center', border: '2px dashed var(--border)', borderRadius: '20px', color: 'var(--muted)' }}>
+                             Enter a search query to evaluate your chunking strategy.
+                           </div>
+                         ) : (
+                           retrievedChunks.map((c, i) => (
+                             <ResultCard key={i} chunk={c} rank={i} isRelevant={false} onToggle={() => {}} onAnalyze={() => explainChunkResult(c.index, false)} isAnalyzing={analyzingChunkIndex === c.index} />
+                           ))
+                         )}
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                         <div className="card" style={{ background: 'rgba(34, 211, 238, 0.03)', border: '1px solid rgba(34, 211, 238, 0.1)' }}>
+                            <h4 className="label-small" style={{ marginBottom: '16px', color: 'var(--primary)' }}>Performance Metrics</h4>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                              <div style={{ fontSize: '42px', fontWeight: 900, color: 'white', fontFamily: "'Outfit', sans-serif" }}>{latencyMetrics.primary}</div>
+                              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary)' }}>ms</div>
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>Retrieval Latency (Local Agent)</div>
+                            
+                            <hr style={{ margin: '24px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '13px', color: 'var(--muted)' }}>Precision@5</span>
+                                  <span style={{ fontSize: '14px', fontWeight: 700 }}>--</span>
+                               </div>
+                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '13px', color: 'var(--muted)' }}>MRR</span>
+                                  <span style={{ fontSize: '14px', fontWeight: 700 }}>--</span>
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        <Footer />
       </main>
+      
+      {error && (
+        <div style={{ position: 'fixed', bottom: '24px', right: '24px', background: 'var(--accent)', color: 'white', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', zIndex: 1000, fontWeight: 600 }}>
+          ⚠️ {error}
+        </div>
+      )}
     </div>
   );
 }

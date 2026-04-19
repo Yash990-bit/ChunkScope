@@ -8,6 +8,8 @@ from services.evaluation import EvaluationService
 from services.recommender import StrategyRecommender
 from services.generation import GenerationService
 from services.analyzer import DocumentAnalyzer
+from services.document import DocumentService
+from fastapi import File, UploadFile, HTTPException
 import time
 
 app = FastAPI(title="ChunkScope API", version="0.1.0")
@@ -26,7 +28,9 @@ class ChunkRequest(BaseModel):
     strategy: str = "recursive"
     chunk_size: int = 500
     chunk_overlap: int = 50
-    breakpoint_threshold_amount: Optional[int] = 90
+    breakpoint_threshold_amount: Optional[float] = 90.0
+    sentences_per_chunk: Optional[int] = 3
+    regex_pattern: Optional[str] = "\\n\\n"
 
 class ChunkData(BaseModel):
     index: int
@@ -67,7 +71,9 @@ async def chunk_text(request: ChunkRequest):
         strategy=request.strategy,
         chunk_size=request.chunk_size,
         chunk_overlap=request.chunk_overlap,
-        breakpoint_threshold_amount=request.breakpoint_threshold_amount
+        breakpoint_threshold_amount=request.breakpoint_threshold_amount,
+        sentences_per_chunk=request.sentences_per_chunk or 3,
+        regex_pattern=request.regex_pattern or "\\n\\n"
     )
     
     # 🕵️ Add Failure Mode Detection (Validation)
@@ -137,6 +143,36 @@ async def evaluate_retrieval(request: EvaluationRequest):
 async def get_recommendation(request: RecommendRequest):
     recommendation = StrategyRecommender.get_recommendation(request.text)
     return recommendation
+
+@app.get("/v1/datasets")
+async def get_datasets():
+    import json
+    import os
+    datasets_path = os.path.join(os.path.dirname(__file__), "data", "datasets.json")
+    try:
+        with open(datasets_path, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        return {"error": f"Failed to load datasets: {str(e)}"}
+
+class ExplainRequest(BaseModel):
+    chunk: str
+    index: int
+
+@app.post("/v1/explain")
+async def explain_chunk(request: ExplainRequest):
+    result = DocumentAnalyzer.explain_chunk(request.chunk, request.index)
+    return result
+
+@app.post("/v1/upload")
+async def upload_document(file: UploadFile = File(...)):
+    try:
+        text = await DocumentService.parse_file(file)
+        return {"filename": file.filename, "content": text}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Parsing error: {str(e)}")
 
 @app.get("/health")
 async def health_check():

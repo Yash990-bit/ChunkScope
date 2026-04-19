@@ -11,7 +11,7 @@ export async function fetchHealth() {
   }
 }
 
-export async function fetchChunks(text: string, strategy: string, chunkSize: number, chunkOverlap: number, breakpointThreshold: number = 90) {
+export async function fetchChunks(text: string, strategy: string, chunkSize: number, chunkOverlap: number, breakpointThreshold: number = 90, sentencesPerChunk: number = 3, regexPattern: string = "\\n\\n") {
   try {
     const response = await fetch(`${API_BASE_URL}/v1/chunk`, {
       method: "POST",
@@ -21,7 +21,9 @@ export async function fetchChunks(text: string, strategy: string, chunkSize: num
         strategy, 
         chunk_size: chunkSize, 
         chunk_overlap: chunkOverlap,
-        breakpoint_threshold_amount: breakpointThreshold 
+        breakpoint_threshold_amount: breakpointThreshold,
+        sentences_per_chunk: sentencesPerChunk,
+        regex_pattern: regexPattern
       }),
     });
     if (!response.ok) throw new Error("Failed to fetch chunks");
@@ -88,6 +90,54 @@ export async function generateAnswer(query: string, contexts: string[], model: s
     return await response.json();
   } catch (error) {
     console.error("Generation request failed:", error);
+    throw error;
+  }
+}
+
+export async function fetchDatasets() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/datasets`);
+    if (!response.ok) throw new Error("Failed to fetch datasets");
+    return await response.json();
+  } catch (error) {
+    console.error("Datasets fetch failed:", error);
+    throw error;
+  }
+}
+
+export async function fetchExplanation(chunk: string, index: number) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/explain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chunk, index }),
+    });
+    if (!response.ok) throw new Error("Failed to fetch explanation");
+    return await response.json();
+  } catch (error) {
+    console.error("Explanation fetch failed:", error);
+    throw error;
+  }
+}
+
+export async function uploadFile(file: File) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${API_BASE_URL}/v1/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Failed to upload file");
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("File upload failed:", error);
     throw error;
   }
 }
