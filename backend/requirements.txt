@@ -16,3 +16,5 @@ langchain-openai
 langchain-experimental
 tiktoken
 pypdf
+gunicorn==21.2.0
+uvicorn==0.27.1
