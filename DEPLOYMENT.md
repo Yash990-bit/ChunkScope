@@ -14,7 +14,7 @@ Render is recommended for hosting the Python backend.
    - **Environment**: `Python 3`
    - **Root Directory**: `backend`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:$PORT`
+   - **Start Command**: `gunicorn -w 1 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:$PORT`
 4. **Environment Variables**:
    - `OPENAI_API_KEY`: Your real OpenAI key.
    - `ALLOWED_ORIGINS`: Set this to your frontend URL later (e.g., `https://chunkscope.vercel.app`) or use `*` for testing.
