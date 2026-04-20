@@ -58,9 +58,23 @@ class GenerationRequest(BaseModel):
     model: str = "gpt-4o-mini"
     evaluate_groundedness: bool = False
 
+class BenchmarkRequest(BaseModel):
+    text: str
+    query: str
+    target_content: Optional[str] = None
+    strategies: List[Dict[str, Any]] = [
+        {"name": "Recursive Small", "strategy": "recursive", "size": 500, "overlap": 50},
+        {"name": "Recursive Large", "strategy": "recursive", "size": 1000, "overlap": 100},
+        {"name": "Semantic", "strategy": "semantic", "size": 0, "overlap": 0}
+    ]
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to ChunkScope API"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "online", "version": "0.1.0"}
 
 
 
@@ -163,6 +177,47 @@ class ExplainRequest(BaseModel):
 async def explain_chunk(request: ExplainRequest):
     result = DocumentAnalyzer.explain_chunk(request.chunk, request.index)
     return result
+
+@app.post("/v1/benchmark")
+async def run_benchmark(request: BenchmarkRequest):
+    results = []
+    
+    for config in request.strategies:
+        start_time = time.perf_counter()
+        
+        # 1. Chunk
+        chunks = ChunkingService.split_text(
+            text=request.text,
+            strategy=config["strategy"],
+            chunk_size=config["size"],
+            chunk_overlap=config["overlap"]
+        )
+        
+        # 2. Retrieve (Vector search is default for benchmarking)
+        retrieval_results = RetrievalService.vector_search(request.query, chunks, k=5)
+        
+        latency = (time.perf_counter() - start_time) * 1000
+        
+        # 3. Calculate "Hit" if target_content is in top results
+        hit = False
+        if request.target_content:
+            target_norm = request.target_content.lower().strip()
+            hit = any(target_norm in res["content"].lower() for res in retrieval_results)
+        
+        # 4. Estimate cost (simplified)
+        token_count = sum(c["metadata"]["token_count"] for c in chunks)
+        est_cost = (token_count * 0.0000001) + 0.0001 # Base model + retrieval cost
+        
+        results.append({
+            "name": config["name"],
+            "strategy": config["strategy"],
+            "hit_rate": 1.0 if hit else 0.0,
+            "latency_ms": round(latency, 2),
+            "cost_score": round(est_cost, 6),
+            "chunk_count": len(chunks)
+        })
+        
+    return {"benchmark_results": results}
 
 @app.post("/v1/upload")
 async def upload_document(file: UploadFile = File(...)):

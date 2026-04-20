@@ -4,8 +4,7 @@ from typing import List, Dict, Any, Optional
 from langchain_text_splitters import (
     RecursiveCharacterTextSplitter,
     CharacterTextSplitter,
-    TokenTextSplitter,
-    SeparatorType
+    TokenTextSplitter
 )
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_community.embeddings import HuggingFaceEmbeddings

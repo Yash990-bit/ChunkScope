@@ -141,3 +141,18 @@ export async function uploadFile(file: File) {
     throw error;
   }
 }
+
+export async function runBenchmark(text: string, query: string, targetContent?: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/benchmark`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, query, target_content: targetContent }),
+    });
+    if (!response.ok) throw new Error("Failed to run benchmark");
+    return await response.json();
+  } catch (error) {
+    console.error("Benchmark request failed:", error);
+    throw error;
+  }
+}

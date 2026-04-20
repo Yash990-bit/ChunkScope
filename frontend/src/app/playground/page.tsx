@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ChunkWorkspace from '@/components/ChunkWorkspace';
-import { fetchChunks, retrieveChunks, evaluateRetrieval, fetchRecommendation, generateAnswer, fetchDatasets, fetchExplanation, uploadFile } from '@/lib/api';
+import StrategyRadarChart from '@/components/StrategyRadarChart';
+import BenchmarkLeaderboard from '@/components/BenchmarkLeaderboard';
+import { fetchChunks, retrieveChunks, evaluateRetrieval, fetchRecommendation, generateAnswer, fetchDatasets, fetchExplanation, uploadFile, runBenchmark } from '@/lib/api';
 
 const ResultCard = ({ chunk, rank, isRelevant, onToggle, onAnalyze, isAnalyzing }: { chunk: any, rank: number, isRelevant: boolean, onToggle: () => void, onAnalyze: () => void, isAnalyzing?: boolean }) => {
   const gradeColor = rank === 0 ? 'var(--primary)' : rank < 3 ? '#f59e0b' : '#ef4444';
@@ -112,6 +114,12 @@ export default function Playground() {
   
   // Analysis States
   const [analyzingChunkIndex, setAnalyzingChunkIndex] = useState<number | null>(null);
+
+  // Benchmarking States
+  const [benchmarkResults, setBenchmarkResults] = useState<any[]>([]);
+  const [isBenchmarking, setIsBenchmarking] = useState(false);
+  const [benchmarkQuery, setBenchmarkQuery] = useState('');
+  const [benchmarkTarget, setBenchmarkTarget] = useState('');
   
   const [error, setError] = useState<string | null>(null);
 
@@ -159,6 +167,23 @@ export default function Playground() {
       setError("Failed to get explanation.");
     } finally {
       setAnalyzingChunkIndex(null);
+    }
+  };
+
+  const handleRunBenchmark = async () => {
+    if (!text.trim() || !benchmarkQuery.trim()) {
+      setError("Please provide both content and a representative query for benchmarking.");
+      return;
+    }
+    setIsBenchmarking(true);
+    setBenchmarkResults([]);
+    try {
+      const res = await runBenchmark(text, benchmarkQuery, benchmarkTarget);
+      setBenchmarkResults(res.benchmark_results);
+    } catch (err: any) {
+      setError("Benchmark failed. Check connectivity.");
+    } finally {
+      setIsBenchmarking(false);
     }
   };
 
@@ -229,6 +254,21 @@ export default function Playground() {
       setIsSearching(false);
       setIsComparing(false);
     }
+  };
+
+  const handleExportBenchmark = () => {
+    if (benchmarkResults.length === 0) return;
+    const headers = "Name,Strategy,Hit Rate,Latency (ms),Estimated Cost,Chunk Count\n";
+    const csvContent = "data:text/csv;charset=utf-8," + headers + 
+      benchmarkResults.map(r => `${r.name},${r.strategy},${r.hit_rate},${r.latency_ms},${r.cost_score},${r.chunk_count}`).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "chunkscope_benchmark.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -485,7 +525,8 @@ export default function Playground() {
               {activeTab === 'chunking' ? (
                 <ChunkWorkspace chunks={chunks} strategy={strategy} />
               ) : (
-                <div className="card" style={{ padding: '40px', background: 'var(--surface)' }}>
+                <>
+                  <div className="card" style={{ padding: '40px', background: 'var(--surface)' }}>
                    <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
                       <input 
                          type="text" 
@@ -542,6 +583,78 @@ export default function Playground() {
                       </div>
                    </div>
                 </div>
+
+                {/* Command Center: Multi-Strategy Benchmarking Dashboard */}
+                <div style={{ marginTop: '80px', paddingTop: '80px', borderTop: '1px solid var(--border)' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+                     <div>
+                       <h2 style={{ fontSize: '28px', fontWeight: 900, marginBottom: '8px' }}>Command Center: Cross-Strategy Benchmark</h2>
+                       <p style={{ color: 'var(--muted)', fontSize: '14px' }}>Automatically compare different chunking configurations against your target data.</p>
+                     </div>
+                     {benchmarkResults.length > 0 && (
+                       <button onClick={handleExportBenchmark} className="btn-secondary" style={{ padding: '10px 20px' }}>
+                         📥 Export CSV Report
+                       </button>
+                     )}
+                   </div>
+
+                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 2.5rem 1.5fr', gap: '32px', marginBottom: '40px' }}>
+                     <div className="card" style={{ background: 'var(--glass)' }}>
+                       <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '24px' }}>Run Multi-Strategy Test</h3>
+                       
+                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                         <div>
+                           <label className="label-small">Benchmark Query</label>
+                           <input 
+                             type="text" 
+                             value={benchmarkQuery} 
+                             onChange={(e) => setBenchmarkQuery(e.target.value)}
+                             placeholder="Enter a standard query..."
+                             style={{ width: '100%', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border)', borderRadius: '10px', padding: '14px', color: 'white', marginTop: '8px' }}
+                           />
+                         </div>
+                         
+                         <div>
+                           <label className="label-small">Target Content (Ground Truth)</label>
+                           <textarea 
+                             value={benchmarkTarget} 
+                             onChange={(e) => setBenchmarkTarget(e.target.value)}
+                             placeholder="Paste the exact sentence that should be found..."
+                             style={{ width: '100%', minHeight: '80px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border)', borderRadius: '10px', padding: '14px', color: 'white', marginTop: '8px', fontSize: '12px' }}
+                           />
+                         </div>
+
+                         <button 
+                           onClick={handleRunBenchmark} 
+                           disabled={isBenchmarking || !text.trim()} 
+                           className="btn-primary" 
+                           style={{ width: '100%', height: '54px', marginTop: '10px' }}
+                         >
+                           {isBenchmarking ? 'Running Leaderboard...' : '🚀 Start Benchmarking'}
+                         </button>
+                       </div>
+                     </div>
+
+                     <div style={{ width: '1px', background: 'var(--border)', height: '100%' }}></div>
+
+                     {benchmarkResults.length > 0 ? (
+                       <div style={{ height: '400px' }}>
+                         <StrategyRadarChart data={benchmarkResults} />
+                       </div>
+                     ) : (
+                       <div style={{ border: '2px dashed var(--border)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: '14px', textAlign: 'center', padding: '40px' }}>
+                         Run a benchmark to see visual trade-off analysis across Accuracy, Speed, and Cost.
+                       </div>
+                     )}
+                   </div>
+
+                   {benchmarkResults.length > 0 && (
+                     <div className="animate-fade-in" style={{ marginBottom: '60px' }}>
+                       <BenchmarkLeaderboard results={benchmarkResults} />
+                     </div>
+                    )}
+                 </div>
+                </>
               )}
             </div>
           )}
