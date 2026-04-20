@@ -35,6 +35,21 @@ Vercel is the native home for Next.js and provides the best performance.
 
 ---
 
+## ⚡ Option 2: Vercel Unified Deployment (Fastest)
+
+You can now deploy both the frontend and backend to a single Vercel project using the included `vercel.json`.
+
+### Setup Steps:
+1. **New Project**: Import the root of your repository to Vercel.
+2. **Project Settings**: 
+   - Vercel will detect the `vercel.json` and orchestrate the services.
+3. **Environment Variables**:
+   - `OPENAI_API_KEY`: Required in the Project Settings.
+   - `ROOT_PATH`: Set this to `/_api` to match the routing in `vercel.json`.
+4. **Deploy**: Vercel handles the routing so your frontend and backend live on the same domain!
+
+---
+
 ## 3. Checklist for Success
 
 - [ ] **OpenAI API**: Ensure your OpenAI account has credits, as production usage will hit your quota.

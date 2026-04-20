@@ -14,7 +14,11 @@ import time
 
 import os
 
-app = FastAPI(title="ChunkScope API", version="0.1.0")
+app = FastAPI(
+    title="ChunkScope API", 
+    version="0.1.0",
+    root_path=os.getenv("ROOT_PATH", "")
+)
 
 # CORS configuration
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
