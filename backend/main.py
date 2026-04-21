@@ -14,16 +14,28 @@ import time
 
 import os
 
+# Initialize FastAPI
+# We use root_path ONLY if specifically requested (likely for Vercel unified)
+# For Render split, this should be empty.
+root_path = os.getenv("ROOT_PATH", "").strip()
+
 app = FastAPI(
     title="ChunkScope API", 
     version="0.1.0",
-    root_path=os.getenv("ROOT_PATH", "")
+    root_path=root_path
 )
+
+# Robust path resolving for data files
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(rest_of_path: str):
+    return {}
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -166,9 +178,10 @@ async def get_recommendation(request: RecommendRequest):
 @app.get("/v1/datasets")
 async def get_datasets():
     import json
-    import os
-    datasets_path = os.path.join(os.path.dirname(__file__), "data", "datasets.json")
+    datasets_path = os.path.join(BASE_DIR, "data", "datasets.json")
     try:
+        if not os.path.exists(datasets_path):
+             return {"error": f"Dataset file not found at {datasets_path}", "datasets": []}
         with open(datasets_path, "r") as f:
             return json.load(f)
     except Exception as e:
