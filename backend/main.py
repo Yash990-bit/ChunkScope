@@ -273,11 +273,7 @@ async def upload_document(file: UploadFile = File(...)):
 async def health_check():
     return {
         "status": "healthy",
-        "version": "0.1.0",
-        "services": {
-            "database": "not_initialized",
-            "search_engine": "not_initialized"
-        }
+        "version": "0.1.0"
     }
 
 if __name__ == "__main__":
