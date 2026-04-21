@@ -7,8 +7,7 @@ from langchain_text_splitters import (
     TokenTextSplitter
 )
 from langchain_experimental.text_splitter import SemanticChunker
-from langchain_community.embeddings import HuggingFaceEmbeddings
-import torch
+from langchain_openai import OpenAIEmbeddings
 
 class ChunkingService:
     _embedding_model = None
@@ -23,11 +22,8 @@ class ChunkingService:
     @classmethod
     def get_embeddings(cls):
         if cls._embedding_model is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            cls._embedding_model = HuggingFaceEmbeddings(
-                model_name="all-MiniLM-L6-v2",
-                model_kwargs={'device': device}
-            )
+            # Using OpenAI embeddings to save local memory and avoid torch dependency
+            cls._embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
         return cls._embedding_model
 
     @staticmethod
@@ -66,8 +62,6 @@ class ChunkingService:
                 add_start_index=True,
             )
         elif strategy == "regex":
-            # For regex, we split by the pattern and then group if necessary, 
-            # but simplest is a CharacterSplitter with a custom regex separator
             splitter = CharacterTextSplitter(
                 separator=regex_pattern,
                 is_separator_regex=True,
@@ -76,8 +70,6 @@ class ChunkingService:
                 add_start_index=True,
             )
         elif strategy == "sentence":
-            # Simple sentence-based splitting using regex or spacy
-            # Here we'll use a recursive splitter with sentence-end markers
             splitter = RecursiveCharacterTextSplitter(
                 separators=[". ", "! ", "? "],
                 chunk_size=chunk_size, 
