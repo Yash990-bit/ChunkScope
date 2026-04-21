@@ -10,6 +10,11 @@ class RetrievalService:
     @classmethod
     def get_embedding_model(cls):
         if cls._embedding_model is None:
+            # Check for API key
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY is not set in the environment.")
+            
             # Using OpenAI embeddings to save local memory
             cls._embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
         return cls._embedding_model
