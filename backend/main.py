@@ -28,10 +28,32 @@ app = FastAPI(
 # Robust path resolving for data files
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-@app.options("/{rest_of_path:path}")
-async def preflight_handler(rest_of_path: str):
-    return {}
+from fastapi.responses import JSONResponse
+from fastapi import Request
 
+# Hardcore CORS Middleware
+@app.middleware("http")
+async def add_cors_header(request: Request, call_next):
+    if request.method == "OPTIONS":
+        response = JSONResponse(content="OK")
+    else:
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            # Handle cases where the app crashes and doesn't reach the normal response stage
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Internal Server Error", "error": str(e)}
+            )
+    
+    # Force headers on every single response (success or failure)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "false"
+    return response
+
+# Standard middleware (as backup)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
