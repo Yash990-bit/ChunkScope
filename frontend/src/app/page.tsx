@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import StatusIndicator from '@/components/StatusIndicator';
 
 export default function Home() {
@@ -39,13 +40,14 @@ export default function Home() {
       }}>
         <div className="animate-fade-in">
           <span style={{ 
-            background: 'rgba(139, 92, 246, 0.1)', 
+            background: 'rgba(34, 211, 238, 0.08)', 
             color: 'var(--primary)', 
             padding: '6px 16px', 
             borderRadius: '20px', 
             fontSize: '14px', 
             fontWeight: 600,
             marginBottom: '24px',
+            border: '1px solid rgba(34, 211, 238, 0.2)',
             display: 'inline-block'
           }}>
             RAG Optimization Platform
@@ -53,7 +55,7 @@ export default function Home() {
           <h2 style={{ fontSize: '56px', marginBottom: '24px', lineHeight: 1.1 }}>
             Stop guessing your <br />
             <span style={{ 
-              background: 'linear-gradient(to right, var(--primary), var(--secondary))',
+              background: 'linear-gradient(to right, #22d3ee, #0ea5e9)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}>chunking strategy</span>
@@ -63,20 +65,35 @@ export default function Home() {
             Visualize boundaries, measure retrieval performance, and simulate full pipelines.
           </p>
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-            <a href="/playground">
+            <Link href="/playground">
               <button className="btn-primary" style={{ padding: '14px 32px', fontSize: '16px' }}>
                 Launch Playground
               </button>
-            </a>
-            <button className="glass" style={{ 
-              padding: '14px 32px', 
-              fontSize: '16px', 
-              borderRadius: '8px',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}>
-              View Documentation
-            </button>
+            </Link>
+            <Link href="/documentation">
+              <button className="glass" style={{ 
+                padding: '14px 32px', 
+                fontSize: '16px', 
+                borderRadius: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                color: 'white',
+                border: '1px solid rgba(255,255,255,0.2)',
+                backgroundColor: 'rgba(255,255,255,0.03)',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+              }}
+              >
+                View Documentation
+              </button>
+            </Link>
           </div>
         </div>
       </section>

@@ -1,4 +1,4 @@
-'use client';
+import Link from 'next/link';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -14,9 +14,6 @@ export default function Footer() {
       alignItems: 'center',
       gap: '24px'
     }}>
-      <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.02em' }}>
-        100% client-side • no text sent to servers • open source
-      </div>
       
       <a 
         href="https://github.com/Yash990-bit/ChunkScope" 
@@ -57,7 +54,7 @@ export default function Footer() {
         Built by <span style={{ color: 'white', fontWeight: 700 }}>AI Agents Buzz</span> — March 25, 2026
       </div>
       
-      <a href="#" style={{ 
+      <Link href="/documentation" style={{ 
         fontSize: '13px', 
         color: 'var(--primary)', 
         fontWeight: 600,
@@ -71,7 +68,7 @@ export default function Footer() {
       onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
       >
         Read the Full Guide <span style={{ fontSize: '16px' }}>→</span>
-      </a>
+      </Link>
     </footer>
   );
 }
