@@ -31,7 +31,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 from fastapi.responses import JSONResponse
 from fastapi import Request
 
-# Hardcore CORS Middleware
+# CORS Middleware
 @app.middleware("http")
 async def add_cors_header(request: Request, call_next):
     if request.method == "OPTIONS":
@@ -41,9 +41,15 @@ async def add_cors_header(request: Request, call_next):
             response = await call_next(request)
         except Exception as e:
             # Handle cases where the app crashes and doesn't reach the normal response stage
+            error_msg = str(e)
+            print(f"Middleware caught exception: {error_msg}")
             response = JSONResponse(
                 status_code=500,
-                content={"detail": "Internal Server Error", "error": str(e)}
+                content={
+                    "detail": "Internal Server Error", 
+                    "error": error_msg,
+                    "type": type(e).__name__
+                }
             )
     
     # Force headers on every single response (success or failure)
@@ -225,37 +231,61 @@ async def run_benchmark(request: BenchmarkRequest):
     for config in request.strategies:
         start_time = time.perf_counter()
         
-        # 1. Chunk
-        chunks = ChunkingService.split_text(
-            text=request.text,
-            strategy=config["strategy"],
-            chunk_size=config["size"],
-            chunk_overlap=config["overlap"]
-        )
-        
-        # 2. Retrieve (Vector search is default for benchmarking)
-        retrieval_results = RetrievalService.vector_search(request.query, chunks, k=5)
-        
-        latency = (time.perf_counter() - start_time) * 1000
-        
-        # 3. Calculate "Hit" if target_content is in top results
-        hit = False
-        if request.target_content:
-            target_norm = request.target_content.lower().strip()
-            hit = any(target_norm in res["content"].lower() for res in retrieval_results)
-        
-        # 4. Estimate cost (simplified)
-        token_count = sum(c["metadata"]["token_count"] for c in chunks)
-        est_cost = (token_count * 0.0000001) + 0.0001 # Base model + retrieval cost
-        
-        results.append({
-            "name": config["name"],
-            "strategy": config["strategy"],
-            "hit_rate": 1.0 if hit else 0.0,
-            "latency_ms": round(latency, 2),
-            "cost_score": round(est_cost, 6),
-            "chunk_count": len(chunks)
-        })
+        try:
+            # 1. Chunk
+            chunks = ChunkingService.split_text(
+                text=request.text,
+                strategy=config["strategy"],
+                chunk_size=config["size"],
+                chunk_overlap=config["overlap"]
+            )
+            
+            if not chunks:
+                 results.append({
+                    "name": config["name"],
+                    "strategy": config["strategy"],
+                    "hit_rate": 0.0,
+                    "latency_ms": 0.0,
+                    "cost_score": 0.0,
+                    "chunk_count": 0,
+                    "error": "No chunks generated"
+                })
+                 continue
+
+            # 2. Retrieve (Vector search is default for benchmarking)
+            retrieval_results = RetrievalService.vector_search(request.query, chunks, k=5)
+            
+            latency = (time.perf_counter() - start_time) * 1000
+            
+            # 3. Calculate "Hit" if target_content is in top results
+            hit = False
+            if request.target_content:
+                target_norm = request.target_content.lower().strip()
+                hit = any(target_norm in res["content"].lower() for res in retrieval_results)
+            
+            # 4. Estimate cost (simplified)
+            token_count = sum(c["metadata"].get("token_count", 0) for c in chunks)
+            est_cost = (token_count * 0.0000001) + 0.0001 # Base model + retrieval cost
+            
+            results.append({
+                "name": config["name"],
+                "strategy": config["strategy"],
+                "hit_rate": 1.0 if hit else 0.0,
+                "latency_ms": round(latency, 2),
+                "cost_score": round(est_cost, 6),
+                "chunk_count": len(chunks)
+            })
+        except Exception as strategy_error:
+            print(f"Benchmark strategy {config['name']} failed: {str(strategy_error)}")
+            results.append({
+                "name": config["name"],
+                "strategy": config["strategy"],
+                "hit_rate": 0.0,
+                "latency_ms": 0.0,
+                "cost_score": 0.0,
+                "chunk_count": 0,
+                "error": str(strategy_error)
+            })
         
     return {"benchmark_results": results}
 
@@ -269,12 +299,7 @@ async def upload_document(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Parsing error: {str(e)}")
 
-@app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "version": "0.1.0"
-    }
+# Duplicate health check removed
 
 if __name__ == "__main__":
     import uvicorn

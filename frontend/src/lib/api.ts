@@ -26,7 +26,10 @@ export async function fetchChunks(text: string, strategy: string, chunkSize: num
         regex_pattern: regexPattern
       }),
     });
-    if (!response.ok) throw new Error("Failed to fetch chunks");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to fetch chunks");
+    }
     return await response.json();
   } catch (error) {
     console.error("Chunking request failed:", error);
@@ -41,7 +44,10 @@ export async function retrieveChunks(query: string, chunks: any[], method: strin
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, chunks, method, k, rerank }),
     });
-    if (!response.ok) throw new Error("Failed to fetch retrieved chunks");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to fetch retrieved chunks");
+    }
     return await response.json();
   } catch (error) {
     console.error("Retrieval request failed:", error);
@@ -56,7 +62,10 @@ export async function evaluateRetrieval(retrievedIndices: number[], relevantIndi
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ retrieved_indices: retrievedIndices, relevant_indices: relevantIndices, k }),
     });
-    if (!response.ok) throw new Error("Failed to fetch evaluation metrics");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to fetch evaluation metrics");
+    }
     return await response.json();
   } catch (error) {
     console.error("Evaluation request failed:", error);
@@ -71,7 +80,10 @@ export async function fetchRecommendation(text: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
-    if (!response.ok) throw new Error("Failed to fetch AI recommendation");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to fetch AI recommendation");
+    }
     return await response.json();
   } catch (error) {
     console.error("Recommendation request failed:", error);
@@ -86,7 +98,10 @@ export async function generateAnswer(query: string, contexts: string[], model: s
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, contexts, model, evaluate_groundedness: evaluateGroundedness }),
     });
-    if (!response.ok) throw new Error("Failed to generate answer");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to generate answer");
+    }
     return await response.json();
   } catch (error) {
     console.error("Generation request failed:", error);
@@ -97,7 +112,10 @@ export async function generateAnswer(query: string, contexts: string[], model: s
 export async function fetchDatasets() {
   try {
     const response = await fetch(`${API_BASE_URL}/v1/datasets`);
-    if (!response.ok) throw new Error("Failed to fetch datasets");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to fetch datasets");
+    }
     return await response.json();
   } catch (error) {
     console.error("Datasets fetch failed:", error);
@@ -112,7 +130,10 @@ export async function fetchExplanation(chunk: string, index: number) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chunk, index }),
     });
-    if (!response.ok) throw new Error("Failed to fetch explanation");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to fetch explanation");
+    }
     return await response.json();
   } catch (error) {
     console.error("Explanation fetch failed:", error);
@@ -131,8 +152,8 @@ export async function uploadFile(file: File) {
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || "Failed to upload file");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.detail || "Failed to upload file");
     }
     
     return await response.json();
@@ -149,7 +170,10 @@ export async function runBenchmark(text: string, query: string, targetContent?: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, query, target_content: targetContent }),
     });
-    if (!response.ok) throw new Error("Failed to run benchmark");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to run benchmark");
+    }
     return await response.json();
   } catch (error) {
     console.error("Benchmark request failed:", error);

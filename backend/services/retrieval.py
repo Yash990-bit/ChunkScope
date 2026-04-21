@@ -47,30 +47,48 @@ class RetrievalService:
         if not chunks:
             return []
             
-        embed_model = cls.get_embedding_model()
-        
-        # 1. Generate embeddings for chunks (in a real app, you'd cache these)
-        chunk_texts = [chunk["content"] for chunk in chunks]
-        chunk_embeddings = embed_model.embed_documents(chunk_texts)
-        
-        # 2. Generate embedding for query
-        query_embedding = embed_model.embed_query(query)
-        
-        # 3. Calculate cosine similarity using numpy (L2 search is also fine)
-        # normalize vectors for cosine similarity
-        q_norm = query_embedding / np.linalg.norm(query_embedding)
-        c_norms = [c / np.linalg.norm(c) for c in chunk_embeddings]
-        
-        similarities = [np.dot(q_norm, c_norm) for c_norm in c_norms]
-        
-        results = []
-        for i, score in enumerate(similarities):
-            chunk = chunks[i].copy()
-            chunk["retrieval_score"] = float(score)
-            results.append(chunk)
+        try:
+            embed_model = cls.get_embedding_model()
+            
+            # 1. Generate embeddings for chunks
+            chunk_texts = [chunk["content"] for chunk in chunks]
+            chunk_embeddings = np.array(embed_model.embed_documents(chunk_texts))
+            
+            # 2. Generate embedding for query
+            query_embedding = np.array(embed_model.embed_query(query))
+            
+            # 3. Calculate cosine similarity using numpy efficiently
+            # Normalize query
+            q_norm = np.linalg.norm(query_embedding)
+            if q_norm == 0:
+                q_normalized = query_embedding
+            else:
+                q_normalized = query_embedding / q_norm
                 
-        results.sort(key=lambda x: x["retrieval_score"], reverse=True)
-        return results[:k]
+            # Normalize chunks
+            c_norms = np.linalg.norm(chunk_embeddings, axis=1, keepdims=True)
+            # Avoid division by zero
+            c_norms[c_norms == 0] = 1.0
+            chunk_embeddings_normalized = chunk_embeddings / c_norms
+            
+            # Dot product for cosine similarity
+            similarities = np.dot(chunk_embeddings_normalized, q_normalized)
+            
+            results = []
+            for i, score in enumerate(similarities):
+                chunk = chunks[i].copy()
+                chunk["retrieval_score"] = float(score)
+                results.append(chunk)
+                    
+            results.sort(key=lambda x: x["retrieval_score"], reverse=True)
+            return results[:k]
+            
+        except Exception as e:
+            # Re-raise with better context if it's an API key issue
+            error_msg = str(e)
+            if "api_key" in error_msg.lower() or "not set" in error_msg.lower():
+                raise ValueError(f"OpenAI Configuration Error: {error_msg}")
+            raise e
 
     @classmethod
     def hybrid_search(cls, query: str, chunks: List[Dict[str, Any]], k: int = 5) -> List[Dict[str, Any]]:
@@ -97,10 +115,11 @@ class RetrievalService:
         # 3. Sort by RRF score
         sorted_indices = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
         
-        # 4. Construct final results
+        # 4. Construct final results (Optimized lookup)
+        chunk_map = {c["index"]: c for c in chunks}
         results = []
         for idx, score in sorted_indices[:k]:
-            chunk = next((c for c in chunks if c["index"] == idx), None)
+            chunk = chunk_map.get(idx)
             if chunk:
                 chunk_copy = chunk.copy()
                 chunk_copy["retrieval_score"] = float(score)

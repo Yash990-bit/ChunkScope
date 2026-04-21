@@ -22,6 +22,11 @@ class ChunkingService:
     @classmethod
     def get_embeddings(cls):
         if cls._embedding_model is None:
+            # Check for API key to provide better error early
+            import os
+            if not os.getenv("OPENAI_API_KEY"):
+                raise ValueError("OPENAI_API_KEY is not set in the environment.")
+            
             # Using OpenAI embeddings to save local memory and avoid torch dependency
             cls._embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
         return cls._embedding_model
